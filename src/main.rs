@@ -1,19 +1,20 @@
 use std::f64::consts::PI;
-use std::vec;
+use std::{io, vec};
+use std::io::prelude::*;
 
 use rand::Rng;
-use std::io::{self, Write};
 use std::time::Instant;
-// use rayon::prelude::*;
-
-use plotters::prelude::*;
+use std::fs::File;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     const N: usize = 131072;
     const L: usize = 16;
     const D: f64 = 0.1;
-    // const MASS: f64 = 200.0;
+    const T: f64 = 1.0;
+    const MASS: f64 = 200.0;
     const N_TEST: usize = 1;
+
+    const E0: f64 = 1.5 * T;
     let mut r = vec![[0.0; 3]; N];
     let mut theta = vec![0.0; N];
     let mut phi = vec![0.0; N];
@@ -25,17 +26,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         theta[i] = (1.0 - 2.0 * rng.gen_range(0.0..1.0_f64)).acos();
         phi[i] = rng.gen_range(0.0..2.0 * std::f64::consts::PI);
-        v[i][0] = theta[i].sin() * phi[i].cos();
-        v[i][1] = theta[i].sin() * phi[i].sin();
-        v[i][2] = theta[i].cos();
+        v[i][0] = theta[i].sin() * phi[i].cos() * (2.0 * E0 / MASS).sqrt();
+        v[i][1] = theta[i].sin() * phi[i].sin() * (2.0 * E0 / MASS).sqrt();
+        v[i][2] = theta[i].cos() * (2.0 * E0 / MASS).sqrt();
     }
     let mut grid: Vec<Vec<Vec<Vec<usize>>>> = vec![vec![vec![vec![]; L]; L]; L];
     for i in 0..N {
         grid[r[i][0].floor() as usize][r[i][1].floor() as usize][r[i][2].floor() as usize].push(i);
     }
 
-    const T_STEP: f64 = 0.1;
-    const N_STEP: usize = 1000;
+    const T_STEP: f64 = 0.2;
+    const N_STEP: usize = 500;
     let start = Instant::now();
     for i_t in 0..N_STEP {
         for i in 0..N {
@@ -117,39 +118,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for i in 0..N {
         speed[i] = (v[i][0] * v[i][0] + v[i][1] * v[i][1] + v[i][2] * v[i][2]).sqrt();
     }
-    let max_speed = speed.iter().fold(0.0_f64, |acc, &x| acc.max(x));
-    // plot speed distribution
-    let root = BitMapBackend::new("speed_distribution.png", (800, 600)).into_drawing_area();
-    root.fill(&WHITE)?;
-    let mut chart = ChartBuilder::on(&root)
-        .caption("Speed Distribution", ("sans-serif", 50).into_font())
-        .margin(5)
-        .build_cartesian_2d(0.0..max_speed, 0.0..N as f64 / 1000.0)
-        .unwrap();
-    chart.configure_mesh().draw()?;
-    chart.draw_series(Histogram::vertical(&chart)
-        .style(RED.mix(0.5).filled())
-        .margin(0)
-        .data(speed.iter().map(|&x| (x, 1.)))
-    )?;
-    // let data = [1, 1, 2, 2, 1, 3, 3, 2, 2, 1, 1, 2, 2, 2, 3, 3, 1, 2, 3];
-    // let drawing_area = SVGBackend::new("histogram_vertical.svg", (300, 200)).into_drawing_area();
-    // drawing_area.fill(&WHITE).unwrap();
-    // let mut chart_builder = ChartBuilder::on(&drawing_area);
-    // chart_builder
-    //     .margin(5)
-    //     .set_left_and_bottom_label_area_size(20);
-    // let mut chart_context = chart_builder
-    //     .build_cartesian_2d((1..3).into_segmented(), 0..9)
-    //     .unwrap();
-    // chart_context.configure_mesh().draw().unwrap();
-    // chart_context
-    //     .draw_series(
-    //         Histogram::vertical(&chart_context)
-    //             .style(BLUE.filled())
-    //             .margin(0)
-    //             .data(data.map(|x| (x, 1))),
-    //     )
-    //     .unwrap();
+
+    let mut file = File::create("data/speed.csv")?;
+    writeln!(file, "speed")?;
+    for value in speed {
+        writeln!(file, "{}", value)?;
+    }
     Ok(())
 }
