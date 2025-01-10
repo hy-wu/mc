@@ -1,20 +1,81 @@
+use std::env;
 use std::f64::consts::PI;
-use std::{io, vec};
 use std::io::prelude::*;
+use std::{io, vec};
 
 use rand::Rng;
-use std::time::Instant;
 use std::fs::File;
+use std::time::Instant;
+
+const N: usize = 131072;
+const L: usize = 16;
+const D: f64 = 0.1;
+const T: f64 = 1.0;
+const MASS: f64 = 200.0;
+const N_TEST: usize = 1;
+
+const E0: f64 = 1.5 * T;
+
+const T_STEP: f64 = 0.2;
+
+fn scatt_o1(
+    grid: &mut Vec<Vec<Vec<Vec<usize>>>>,
+    i_x: usize,
+    i_y: usize,
+    i_z: usize,
+    di: [i32; 3],
+    rng: &mut rand::rngs::ThreadRng,
+    r: &Vec<[f64; 3]>,
+    v: &mut Vec<[f64; 3]>,
+) {
+    let l = grid.len();
+    let i_x_new = (i_x as i32 + di[0]).rem_euclid(l as i32) as usize;
+    let i_y_new = (i_y as i32 + di[1]).rem_euclid(l as i32) as usize;
+    let i_z_new = (i_z as i32 + di[2]).rem_euclid(l as i32) as usize;
+    for j0 in 0..grid[i_x][i_y][i_z].len() {
+        for j1 in 0..grid[i_x_new][i_y_new][i_z_new].len() {
+            let i0 = grid[i_x][i_y][i_z][j0];
+            let i1 = grid[i_x_new][i_y_new][i_z_new][j1];
+            let mut dr = [0.0; 3];
+            let mut dv = [0.0; 3];
+            for k in 0..3 {
+                dr[k] = r[i0][k] - r[i1][k];
+                dv[k] = v[i0][k] - v[i1][k];
+            }
+            let dr2 = dr[0] * dr[0] + dr[1] * dr[1] + dr[2] * dr[2];
+            let dv_dr = dv[0] * dr[0] + dv[1] * dr[1] + dv[2] * dr[2];
+            let dv2 = dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2];
+            let dspeed = dv2.sqrt();
+            // \vec{k} = \Delta\vec{v}_{rel} / |\Deltad\vec{v}_{rel}|
+            //         = (\Delta\vec{v}_2 - \Delta\vec{v}_1) / |\Delta\vec{v}_2 - \Delta\vec{v}_1|
+            let mut k_v: [f64; 3] = [0.0; 3];
+            for k in 0..3 {
+                k_v[k] = dr[k] * dv_dr / dr2
+            }
+            let k: f64 = (k_v[0] * k_v[0] + k_v[1] * k_v[1] + k_v[2] * k_v[2]).sqrt();  // TODO: simplify
+            for k_ in 0..3 {
+                k_v[k_] /= k;
+            }
+            let collision_prob = dspeed * T_STEP * D * D * PI / N_TEST as f64;
+            if rng.gen_range(0.0..1.0) < collision_prob {
+                for k in 0..3 {
+                    v[i0][k] -= dr[k] * dv_dr / dr2;
+                    v[i1][k] += dr[k] * dv_dr / dr2;
+                }
+            }
+        }
+    }
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    const N: usize = 131072;
-    const L: usize = 16;
-    const D: f64 = 0.1;
-    const T: f64 = 1.0;
-    const MASS: f64 = 200.0;
-    const N_TEST: usize = 1;
+    let args: Vec<String> = env::args().collect();
+    if args.len() != 3 {
+        eprintln!("Usage: {} <n_step: usize> <bounded: bool>", args[0]);
+        std::process::exit(1);
+    }
+    let n_step: usize = args[1].parse()?;
+    let bounded: bool = args[2].parse()?;
 
-    const E0: f64 = 1.5 * T;
     let mut r = vec![[0.0; 3]; N];
     let mut theta = vec![0.0; N];
     let mut phi = vec![0.0; N];
@@ -35,20 +96,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         grid[r[i][0].floor() as usize][r[i][1].floor() as usize][r[i][2].floor() as usize].push(i);
     }
 
-    const T_STEP: f64 = 0.2;
-    const N_STEP: usize = 500;
     let start = Instant::now();
-    for i_t in 0..N_STEP {
+    for i_t in 0..n_step {
         for i in 0..N {
             for j in 0..3 {
                 r[i][j] += v[i][j] * T_STEP;
-                if r[i][j] < 0.0 {
-                    r[i][j] = -r[i][j];
-                    v[i][j] = -v[i][j];
+            }
+        }
+        if bounded {
+            for i in 0..N {
+                for j in 0..3 {
+                    if r[i][j] < 0.0 {
+                        r[i][j] = -r[i][j];
+                        v[i][j] = -v[i][j];
+                    }
+                    if r[i][j] >= L as f64 {
+                        r[i][j] = 2.0 * L as f64 - r[i][j];
+                        v[i][j] = -v[i][j];
+                    }
                 }
-                if r[i][j] >= L as f64 {
-                    r[i][j] = 2.0 * L as f64 - r[i][j];
-                    v[i][j] = -v[i][j];
+            }
+        } else {
+            for i in 0..N {
+                for j in 0..3 {
+                    r[i][j] = r[i][j].rem_euclid(L as f64);
                 }
             }
         }
@@ -103,7 +174,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 });
             });
         });
-        print!("{i_t}/{N_STEP}\r");
+
+        for i_x in 0..L {
+            for i_y in 0..L {
+                for i_z in 0..L {
+                    scatt_o1(&mut grid, i_x, i_y, i_z, [1, 0, 0], &mut rng, &r, &mut v);
+                    scatt_o1(&mut grid, i_x, i_y, i_z, [0, 1, 0], &mut rng, &r, &mut v);
+                    scatt_o1(&mut grid, i_x, i_y, i_z, [0, 0, 1], &mut rng, &r, &mut v);
+                }
+            }
+        }
+
+        print!("{i_t}/{n_step}\r");
         io::stdout().flush().unwrap();
     }
     let elapsed = start.elapsed();
@@ -112,7 +194,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         elapsed.as_secs(),
         elapsed.subsec_millis()
     );
-    println!("{} ms per step", elapsed.as_millis() / N_STEP as u128);
+    println!("{} ms per step", elapsed.as_millis() / n_step as u128);
 
     let mut speed = vec![0.0; N];
     for i in 0..N {
