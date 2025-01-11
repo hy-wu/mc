@@ -35,7 +35,7 @@ configs = [
         'N_TEST': N_TEST,
         'E0': 1.5 * T,
         'T_STEP': float(f"{0.002 / D ** 2:.2f}"),
-    } for D in [0.11, 0.13, 0.14, 0.16, 0.18, 0.19]
+    } for D in [0.10, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.20]
 ]
 
 async def main():
@@ -55,6 +55,6 @@ async def main():
 asyncio.run(main())
 for d in os.listdir('./data'):
     if os.path.isdir(f'./data/{d}') and 'plot.py' not in os.listdir(f'./data/{d}'):
-        shutil.copy('./data/N=131072_L=16_D=0.1_T=1_MASS=200_N_TEST=1/plot.py', f'./data/{d}')
+        shutil.copy('./data/plot.py', f'./data/{d}')
     if os.path.isdir(f'./data/{d}') and not os.path.exists(f'./data/{d}/pressure.png'):
         subprocess.run(['python', 'plot.py'], cwd=f'./data/{d}')

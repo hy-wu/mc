@@ -33,6 +33,11 @@ fn scatt_o1(
             let mut dv = [0.0; 3];
             for k in 0..3 {
                 dr[k] = r[i0][k] - r[i1][k];
+                if dr[k] > config.L as f64 / 2.0 {
+                    dr[k] -= config.L as f64;
+                } else if dr[k] < -(config.L as f64) / 2.0 {
+                    dr[k] += config.L as f64;
+                }
                 dv[k] = v[i0][k] - v[i1][k];
             }
             let dr2 = dr[0] * dr[0] + dr[1] * dr[1] + dr[2] * dr[2];
@@ -44,11 +49,13 @@ fn scatt_o1(
             for k in 0..3 {
                 vec_k[k] = dr[k] / dr2
             }
-            let k_factor = vec_k[0] * di[0] as f64 + vec_k[1] * di[1] as f64 + vec_k[2] * di[2] as f64;
+            let k_factor =
+                vec_k[0] * di[0] as f64 + vec_k[1] * di[1] as f64 + vec_k[2] * di[2] as f64;
             if k_factor <= 0.0 {
                 continue;
             }
-            let collision_prob = dspeed * config.T_STEP * config.D.powi(3) * k_factor * PI / ( 2 * config.N_TEST) as f64;
+            let collision_prob = dspeed * config.T_STEP * config.D.powi(3) * k_factor * PI
+                / (2 * config.N_TEST) as f64;
             if rng.gen_range(0.0..1.0) < collision_prob {
                 let dv_dr = dv[0] * dr[0] + dv[1] * dr[1] + dv[2] * dr[2];
                 for k in 0..3 {
@@ -60,7 +67,7 @@ fn scatt_o1(
     }
 }
 
-fn scatt_o2 (
+fn scatt_o2(
     grid: &mut Vec<Vec<Vec<Vec<usize>>>>,
     i_x: usize,
     i_y: usize,
@@ -86,7 +93,7 @@ fn scatt_o2 (
                 dr[k] = r[i0][k] - r[i1][k];
                 if dr[k] > config.L as f64 / 2.0 {
                     dr[k] -= config.L as f64;
-                } else if dr[k] < - (config.L as f64) / 2.0 {
+                } else if dr[k] < -(config.L as f64) / 2.0 {
                     dr[k] += config.L as f64;
                 }
                 // elsewise, dr[k] = (dr[k] + L / 2).rem_euclid(L as f64) - L / 2;, which is faster?
@@ -103,16 +110,25 @@ fn scatt_o2 (
             }
             let mut k_factor = 1.;
             for k in 0..3 {
-               if di[k] == 1 {
-                   k_factor *= vec_k[k];
-               } else if di[k] == 2 {
-                   k_factor *= vec_k[k].powi(2);
-               }
+                if di[k] == 1 {
+                    if vec_k[k] <= 0.0 {
+                        k_factor = -1.;
+                        break;
+                    }
+                    k_factor *= vec_k[k];
+                } else if di[k] == 2 {
+                    if vec_k[k] <= 0.0 {
+                        k_factor = -1.;
+                        break;
+                    }
+                    k_factor *= vec_k[k].powi(2);
+                }
             }
             if k_factor <= 0.0 {
                 continue;
             }
-            let collision_prob = dspeed * config.T_STEP * config.D.powi(4) * k_factor * PI / ( 8 * config.N_TEST) as f64;
+            let collision_prob = dspeed * config.T_STEP * config.D.powi(4) * k_factor * PI
+                / (8 * config.N_TEST) as f64;
             if rng.gen_range(0.0..1.0) < collision_prob {
                 let dv_dr = dv[0] * dr[0] + dv[1] * dr[1] + dv[2] * dr[2];
                 for k in 0..3 {
@@ -127,7 +143,10 @@ fn scatt_o2 (
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
     if args.len() != 4 {
-        eprintln!("Usage: {} <config_path> <n_step: usize> <bounded: bool>", args[0]);
+        eprintln!(
+            "Usage: {} <config_path> <n_step: usize> <bounded: bool>",
+            args[0]
+        );
         std::process::exit(1);
     }
     let config_path = &args[1];
@@ -150,8 +169,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         v[i][1] = theta[i].sin() * phi[i].sin() * (2.0 * config.E0 / config.MASS).sqrt();
         v[i][2] = theta[i].cos() * (2.0 * config.E0 / config.MASS).sqrt();
     }
-    let mut grid: Vec<Vec<Vec<Vec<usize>>>> = vec![vec![vec![vec![]; config.L]; config.L]; config.L];
-    
+    let mut grid: Vec<Vec<Vec<Vec<usize>>>> =
+        vec![vec![vec![vec![]; config.L]; config.L]; config.L];
+
     let mut pressures = vec![0.0; n_step];
     // let mut temperatures = vec![0.0; n_step];
 
@@ -236,7 +256,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                             let dv2 = dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2];
                             let dspeed = dv2.sqrt();
-                            let collision_prob = dspeed * config.T_STEP * config.D * config.D * PI / config.N_TEST as f64;
+                            let collision_prob = dspeed * config.T_STEP * config.D * config.D * PI
+                                / config.N_TEST as f64;
                             if rng.gen_range(0.0..1.0) < collision_prob {
                                 let dr2 = dr[0] * dr[0] + dr[1] * dr[1] + dr[2] * dr[2];
                                 let dv_dr = dv[0] * dr[0] + dv[1] * dr[1] + dv[2] * dr[2];
@@ -254,15 +275,105 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for i_x in 0..config.L {
             for i_y in 0..config.L {
                 for i_z in 0..config.L {
-                    scatt_o1(&mut grid, i_x, i_y, i_z, [1, 0, 0], &mut rng, &r, &mut v, &config);
-                    scatt_o1(&mut grid, i_x, i_y, i_z, [0, 1, 0], &mut rng, &r, &mut v, &config);
-                    scatt_o1(&mut grid, i_x, i_y, i_z, [0, 0, 1], &mut rng, &r, &mut v, &config);
-                    scatt_o2(&mut grid, i_x, i_y, i_z, [1, 1, 0], &mut rng, &r, &mut v, &config);
-                    scatt_o2(&mut grid, i_x, i_y, i_z, [1, 0, 1], &mut rng, &r, &mut v, &config);
-                    scatt_o2(&mut grid, i_x, i_y, i_z, [0, 1, 1], &mut rng, &r, &mut v, &config);
-                    scatt_o2(&mut grid, i_x, i_y, i_z, [2, 0, 0], &mut rng, &r, &mut v, &config);
-                    scatt_o2(&mut grid, i_x, i_y, i_z, [0, 2, 0], &mut rng, &r, &mut v, &config);
-                    scatt_o2(&mut grid, i_x, i_y, i_z, [0, 0, 2], &mut rng, &r, &mut v, &config);
+                    scatt_o1(
+                        &mut grid,
+                        i_x,
+                        i_y,
+                        i_z,
+                        [1, 0, 0],
+                        &mut rng,
+                        &r,
+                        &mut v,
+                        &config,
+                    );
+                    scatt_o1(
+                        &mut grid,
+                        i_x,
+                        i_y,
+                        i_z,
+                        [0, 1, 0],
+                        &mut rng,
+                        &r,
+                        &mut v,
+                        &config,
+                    );
+                    scatt_o1(
+                        &mut grid,
+                        i_x,
+                        i_y,
+                        i_z,
+                        [0, 0, 1],
+                        &mut rng,
+                        &r,
+                        &mut v,
+                        &config,
+                    );
+                    scatt_o2(
+                        &mut grid,
+                        i_x,
+                        i_y,
+                        i_z,
+                        [1, 1, 0],
+                        &mut rng,
+                        &r,
+                        &mut v,
+                        &config,
+                    );
+                    scatt_o2(
+                        &mut grid,
+                        i_x,
+                        i_y,
+                        i_z,
+                        [1, 0, 1],
+                        &mut rng,
+                        &r,
+                        &mut v,
+                        &config,
+                    );
+                    scatt_o2(
+                        &mut grid,
+                        i_x,
+                        i_y,
+                        i_z,
+                        [0, 1, 1],
+                        &mut rng,
+                        &r,
+                        &mut v,
+                        &config,
+                    );
+                    scatt_o2(
+                        &mut grid,
+                        i_x,
+                        i_y,
+                        i_z,
+                        [2, 0, 0],
+                        &mut rng,
+                        &r,
+                        &mut v,
+                        &config,
+                    );
+                    scatt_o2(
+                        &mut grid,
+                        i_x,
+                        i_y,
+                        i_z,
+                        [0, 2, 0],
+                        &mut rng,
+                        &r,
+                        &mut v,
+                        &config,
+                    );
+                    scatt_o2(
+                        &mut grid,
+                        i_x,
+                        i_y,
+                        i_z,
+                        [0, 0, 2],
+                        &mut rng,
+                        &r,
+                        &mut v,
+                        &config,
+                    );
                 }
             }
         }
@@ -283,7 +394,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         speed[i] = (v[i][0] * v[i][0] + v[i][1] * v[i][1] + v[i][2] * v[i][2]).sqrt();
     }
 
-    let data_dir: String = format!("data/N={}_L={}_D={}_T={}_MASS={}_N_TEST={}", config.N, config.L, config.D, config.T, config.MASS, config.N_TEST);
+    let data_dir: String = format!(
+        "data/N={}_L={}_D={}_T={}_MASS={}_N_TEST={}",
+        config.N, config.L, config.D, config.T, config.MASS, config.N_TEST
+    );
     std::fs::create_dir_all(&data_dir)?;
     let mut file = File::create(format!("{}/speed.csv", data_dir))?;
     writeln!(file, "speed")?;

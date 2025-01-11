@@ -30,7 +30,7 @@ def read_config(file_path):
         config['T_STEP'] = float(re.search(r'pub const T_STEP: f64 = ([\d.]+);', content).group(1))
     return config
 
-config = read_config('../src/config.rs')
+config = read_config('../../src/config.rs')
 T = config['T']
 m = config['MASS']
 
