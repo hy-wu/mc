@@ -392,8 +392,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let data_dir: String = format!(
-        "data/N={}_L={}_D={}_T={}_MASS={}_N_TEST={}",
-        config.N, config.L, config.D, config.T, config.MASS, config.N_TEST
+        "data/N={}_L={}_D={}_T={}_MASS={}_N_TEST={}_T_STEP={}_N_STEP={}_bounded={}",
+        config.N, config.L, config.D, config.T, config.MASS, config.N_TEST, config.T_STEP, n_step, bounded
     );
     std::fs::create_dir_all(&data_dir)?;
     let mut file = File::create(format!("{}/speed.csv", data_dir))?;

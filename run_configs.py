@@ -45,7 +45,7 @@ async def main():
         config_path = f'config_D{config['D']}.toml'
         # if not os.path.exists(config_path):
         create_config_file(config, config_path)
-        task = asyncio.create_task(run_rust_program(config_path, 500, False))
+        task = asyncio.create_task(run_rust_program(config_path, 500, True))
         tasks.append(task)
         print(f'Start running config_D{config["D"]}')
         await asyncio.sleep(1)
