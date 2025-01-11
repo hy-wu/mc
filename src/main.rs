@@ -51,15 +51,16 @@ fn scatt_o1(
             }
             let mut k_factor =
                 vec_k[0] * di[0] as f64 + vec_k[1] * di[1] as f64 + vec_k[2] * di[2] as f64;
-            if k_factor >= 0.0 {
+            let dv_dr = dv[0] * dr[0] + dv[1] * dr[1] + dv[2] * dr[2];
+            if dv_dr >= 0.0 {
                 continue;
             } else {
                 k_factor = -k_factor;
+                // assert!(k_factor > 0.0, "k_factor = {}", k_factor);
             }
             let collision_prob = dspeed * config.T_STEP * config.D.powi(3) * k_factor * PI
                 / (2 * config.N_TEST) as f64;
             if rng.gen_range(0.0..1.0) < collision_prob {
-                let dv_dr = dv[0] * dr[0] + dv[1] * dr[1] + dv[2] * dr[2];
                 for k in 0..3 {
                     v[i0][k] -= vec_k[k] * dv_dr;
                     v[i1][k] += vec_k[k] * dv_dr;
@@ -113,26 +114,20 @@ fn scatt_o2(
             let mut k_factor = 1.;
             for k in 0..3 {
                 if di[k] == 1 {
-                    if vec_k[k] >= 0.0 {
-                        k_factor = -1.;
-                        break;
-                    }
+                    // assert!(vec_k[k] < 0.0, "vec_k[{}] = {}", k, vec_k[k]);
                     k_factor *= vec_k[k];
                 } else if di[k] == 2 {
-                    if vec_k[k] >= 0.0 {
-                        k_factor = -1.;
-                        break;
-                    }
+                    // assert!(vec_k[k] < 0.0, "vec_k[{}] = {}", k, vec_k[k]);
                     k_factor *= vec_k[k].powi(2);
                 }
             }
-            if k_factor <= 0.0 {
+            let dv_dr = dv[0] * dr[0] + dv[1] * dr[1] + dv[2] * dr[2];
+            if dv_dr >= 0.0 {
                 continue;
             }
             let collision_prob = dspeed * config.T_STEP * config.D.powi(4) * k_factor * PI
                 / (8 * config.N_TEST) as f64;
             if rng.gen_range(0.0..1.0) < collision_prob {
-                let dv_dr = dv[0] * dr[0] + dv[1] * dr[1] + dv[2] * dr[2];
                 for k in 0..3 {
                     v[i0][k] -= vec_k[k] * dv_dr;
                     v[i1][k] += vec_k[k] * dv_dr;

@@ -35,6 +35,7 @@ configs = [
         'N_TEST': N_TEST,
         'E0': 1.5 * T,
         'T_STEP': float(f"{0.002 / D ** 2:.2f}"),
+    # } for D in [0.10]
     } for D in [0.10, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.20]
 ]
 
@@ -42,10 +43,10 @@ async def main():
     tasks = []
     for i, config in enumerate(configs):
         config_path = f'config_D{config['D']}.toml'
-        if not os.path.exists(config_path):
-            create_config_file(config, config_path)
-            task = asyncio.create_task(run_rust_program(config_path, 500, True))
-            tasks.append(task)
+        # if not os.path.exists(config_path):
+        create_config_file(config, config_path)
+        task = asyncio.create_task(run_rust_program(config_path, 500, False))
+        tasks.append(task)
         print(f'Start running config_D{config["D"]}')
         await asyncio.sleep(1)
     await asyncio.gather(*tasks)
