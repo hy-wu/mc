@@ -1,3 +1,4 @@
 /target
-
+/data/N*
 config*.toml
+config*.toml.log

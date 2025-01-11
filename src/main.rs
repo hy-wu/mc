@@ -283,7 +283,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         speed[i] = (v[i][0] * v[i][0] + v[i][1] * v[i][1] + v[i][2] * v[i][2]).sqrt();
     }
 
-    let data_dir: String = format!("data/N={}_L={}_D={}_T={}_config.MASS={}_N_TEST={}", config.N, config.L, config.D, config.T, config.MASS, config.N_TEST);
+    let data_dir: String = format!("data/N={}_L={}_D={}_T={}_MASS={}_N_TEST={}", config.N, config.L, config.D, config.T, config.MASS, config.N_TEST);
     std::fs::create_dir_all(&data_dir)?;
     let mut file = File::create(format!("{}/speed.csv", data_dir))?;
     writeln!(file, "speed")?;
