@@ -49,10 +49,12 @@ fn scatt_o1(
             for k in 0..3 {
                 vec_k[k] = dr[k] / dr2
             }
-            let k_factor =
+            let mut k_factor =
                 vec_k[0] * di[0] as f64 + vec_k[1] * di[1] as f64 + vec_k[2] * di[2] as f64;
-            if k_factor <= 0.0 {
+            if k_factor >= 0.0 {
                 continue;
+            } else {
+                k_factor = -k_factor;
             }
             let collision_prob = dspeed * config.T_STEP * config.D.powi(3) * k_factor * PI
                 / (2 * config.N_TEST) as f64;
@@ -111,13 +113,13 @@ fn scatt_o2(
             let mut k_factor = 1.;
             for k in 0..3 {
                 if di[k] == 1 {
-                    if vec_k[k] <= 0.0 {
+                    if vec_k[k] >= 0.0 {
                         k_factor = -1.;
                         break;
                     }
                     k_factor *= vec_k[k];
                 } else if di[k] == 2 {
-                    if vec_k[k] <= 0.0 {
+                    if vec_k[k] >= 0.0 {
                         k_factor = -1.;
                         break;
                     }
