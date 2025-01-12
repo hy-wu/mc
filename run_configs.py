@@ -27,14 +27,14 @@ MASS = 200.0
 N_TEST = 1
 configs = [
     {
-        'N': N,
-        'L': L,
-        'D': D,
-        'T': T,
-        'MASS': MASS,
-        'N_TEST': N_TEST,
-        'E0': 1.5 * T,
-        'T_STEP': float(f"{0.002 / D ** 2:.2f}"),
+        'n': N,
+        'l': L,
+        'd': D,
+        'temperature': T,
+        'mass': MASS,
+        'n_test': N_TEST,
+        'e0': 1.5 * T,
+        'dt': float(f"{0.002 / D ** 2:.2f}"),
     # } for D in [0.10]
     } for D in [0.10, 0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.20]
 ]
@@ -42,16 +42,16 @@ configs = [
 async def main():
     tasks = []
     for i, config in enumerate(configs):
-        config_path = f'config_D{config['D']}.toml'
+        config_path = f'config_D{config["d"]}.toml'
         # if not os.path.exists(config_path):
         create_config_file(config, config_path)
         task = asyncio.create_task(run_rust_program(config_path, 5, True))
         tasks.append(task)
-        print(f'Start running config_D{config["D"]}')
+        print(f'Start running config_D{config["d"]}')
         await asyncio.sleep(1)
     await asyncio.gather(*tasks)
     for config in configs:
-        os.remove(f'config_D{config["D"]}.toml')
+        os.remove(f'config_D{config["d"]}.toml')
 
 asyncio.run(main())
 for d in os.listdir('./data'):

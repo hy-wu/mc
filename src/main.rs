@@ -33,10 +33,10 @@ fn scatt_o1(
             let mut dv = [0.0; 3];
             for k in 0..3 {
                 dr[k] = r[i0][k] - r[i1][k];
-                if dr[k] > config.L as f64 / 2.0 {
-                    dr[k] -= config.L as f64;
-                } else if dr[k] < -(config.L as f64) / 2.0 {
-                    dr[k] += config.L as f64;
+                if dr[k] > config.l as f64 / 2.0 {
+                    dr[k] -= config.l as f64;
+                } else if dr[k] < -(config.l as f64) / 2.0 {
+                    dr[k] += config.l as f64;
                 }
                 dv[k] = v[i0][k] - v[i1][k];
             }
@@ -58,8 +58,8 @@ fn scatt_o1(
                 k_factor = -k_factor;
                 // assert!(k_factor > 0.0, "k_factor = {}", k_factor);
             }
-            let collision_prob = dspeed * config.T_STEP * config.D.powi(3) * k_factor * PI
-                / (2 * config.N_TEST) as f64;
+            let collision_prob = dspeed * config.dt * config.d.powi(3) * k_factor * PI
+                / (2 * config.n_test) as f64;
             if rng.gen_range(0.0..1.0) < collision_prob {
                 for k in 0..3 {
                     v[i0][k] -= vec_k[k] * dv_dr;
@@ -94,10 +94,10 @@ fn scatt_o2(
 
             for k in 0..3 {
                 dr[k] = r[i0][k] - r[i1][k];
-                if dr[k] > config.L as f64 / 2.0 {
-                    dr[k] -= config.L as f64;
-                } else if dr[k] < -(config.L as f64) / 2.0 {
-                    dr[k] += config.L as f64;
+                if dr[k] > config.l as f64 / 2.0 {
+                    dr[k] -= config.l as f64;
+                } else if dr[k] < -(config.l as f64) / 2.0 {
+                    dr[k] += config.l as f64;
                 }
                 // elsewise, dr[k] = (dr[k] + L / 2).rem_euclid(L as f64) - L / 2;, which is faster?
                 dv[k] = v[i0][k] - v[i1][k];
@@ -125,8 +125,8 @@ fn scatt_o2(
             if dv_dr >= 0.0 {
                 continue;
             }
-            let collision_prob = dspeed * config.T_STEP * config.D.powi(4) * k_factor * PI
-                / (8 * config.N_TEST) as f64;
+            let collision_prob = dspeed * config.dt * config.d.powi(4) * k_factor * PI
+                / (8 * config.n_test) as f64;
             if rng.gen_range(0.0..1.0) < collision_prob {
                 for k in 0..3 {
                     v[i0][k] -= vec_k[k] * dv_dr;
@@ -151,75 +151,75 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bounded: bool = args[3].parse()?;
     let config = Config::from_file(config_path);
 
-    let mut r = vec![[0.0; 3]; config.N];
-    let mut theta = vec![0.0; config.N];
-    let mut phi = vec![0.0; config.N];
-    let mut v = vec![[0.0; 3]; config.N];
+    let mut r = vec![[0.0; 3]; config.n];
+    let mut theta = vec![0.0; config.n];
+    let mut phi = vec![0.0; config.n];
+    let mut v = vec![[0.0; 3]; config.n];
     let mut rng = rand::thread_rng();
-    for i in 0..config.N {
+    for i in 0..config.n {
         for j in 0..3 {
-            r[i][j] = rng.gen_range(0.0..config.L as f64);
+            r[i][j] = rng.gen_range(0.0..config.l as f64);
         }
         theta[i] = (1.0 - 2.0 * rng.gen_range(0.0..1.0_f64)).acos();
         phi[i] = rng.gen_range(0.0..2.0 * std::f64::consts::PI);
-        v[i][0] = theta[i].sin() * phi[i].cos() * (2.0 * config.E0 / config.MASS).sqrt();
-        v[i][1] = theta[i].sin() * phi[i].sin() * (2.0 * config.E0 / config.MASS).sqrt();
-        v[i][2] = theta[i].cos() * (2.0 * config.E0 / config.MASS).sqrt();
+        v[i][0] = theta[i].sin() * phi[i].cos() * (2.0 * config.e0 / config.mass).sqrt();
+        v[i][1] = theta[i].sin() * phi[i].sin() * (2.0 * config.e0 / config.mass).sqrt();
+        v[i][2] = theta[i].cos() * (2.0 * config.e0 / config.mass).sqrt();
     }
     let mut grid: Vec<Vec<Vec<Vec<usize>>>> =
-        vec![vec![vec![vec![]; config.L]; config.L]; config.L];
+        vec![vec![vec![vec![]; config.l]; config.l]; config.l];
 
     let mut pressures = vec![0.0; n_step];
     // let mut temperatures = vec![0.0; n_step];
 
-    for i in 0..config.N {
+    for i in 0..config.n {
         grid[r[i][0].floor() as usize][r[i][1].floor() as usize][r[i][2].floor() as usize].push(i);
     }
 
     let start = Instant::now();
     for i_t in 0..n_step {
-        for i in 0..config.N {
+        for i in 0..config.n {
             for j in 0..3 {
-                r[i][j] += v[i][j] * config.T_STEP;
+                r[i][j] += v[i][j] * config.dt;
             }
         }
         let mut pressure = 0.0;
         if bounded {
-            for i in 0..config.N {
+            for i in 0..config.n {
                 for j in 0..3 {
                     if r[i][j] < 0.0 {
                         r[i][j] = -r[i][j];
-                        pressure -= 2.0 * config.MASS * v[i][j] / config.T_STEP;
+                        pressure -= 2.0 * config.mass * v[i][j] / config.dt;
                         v[i][j] = -v[i][j];
                     }
-                    if r[i][j] >= config.L as f64 {
-                        r[i][j] = 2.0 * config.L as f64 - r[i][j];
-                        pressure += 2.0 * config.MASS * v[i][j] / config.T_STEP;
+                    if r[i][j] >= config.l as f64 {
+                        r[i][j] = 2.0 * config.l as f64 - r[i][j];
+                        pressure += 2.0 * config.mass * v[i][j] / config.dt;
                         v[i][j] = -v[i][j];
                     }
                 }
             }
         } else {
-            for i in 0..config.N {
+            for i in 0..config.n {
                 for j in 0..3 {
                     if r[i][j] < 0.0 {
-                        pressure -= 2. * config.MASS * v[i][j] / config.T_STEP;
-                        r[i][j] = r[i][j].rem_euclid(config.L as f64);
+                        pressure -= 2. * config.mass * v[i][j] / config.dt;
+                        r[i][j] = r[i][j].rem_euclid(config.l as f64);
                     }
-                    if r[i][j] >= config.L as f64 {
-                        pressure += 2. * config.MASS * v[i][j] / config.T_STEP;
-                        r[i][j] = r[i][j].rem_euclid(config.L as f64);
+                    if r[i][j] >= config.l as f64 {
+                        pressure += 2. * config.mass * v[i][j] / config.dt;
+                        r[i][j] = r[i][j].rem_euclid(config.l as f64);
                     }
                 }
             }
         }
-        pressure /= (6 * config.L.pow(2)) as f64;
+        pressure /= (6 * config.l.pow(2)) as f64;
         pressures[i_t] = pressure;
 
         let mut removes = vec![];
-        for i_x in 0..config.L {
-            for i_y in 0..config.L {
-                for i_z in 0..config.L {
+        for i_x in 0..config.l {
+            for i_y in 0..config.l {
+                for i_z in 0..config.l {
                     for j in 0..grid[i_x][i_y][i_z].len() {
                         let i: usize = grid[i_x][i_y][i_z][j];
                         let i_x_new = r[i][0].floor() as usize;
@@ -253,8 +253,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                             let dv2 = dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2];
                             let dspeed = dv2.sqrt();
-                            let collision_prob = dspeed * config.T_STEP * config.D * config.D * PI
-                                / config.N_TEST as f64;
+                            let collision_prob = dspeed * config.dt * config.d * config.d * PI
+                                / config.n_test as f64;
                             if rng.gen_range(0.0..1.0) < collision_prob {
                                 let dr2 = dr[0] * dr[0] + dr[1] * dr[1] + dr[2] * dr[2];
                                 let dv_dr = dv[0] * dr[0] + dv[1] * dr[1] + dv[2] * dr[2];
@@ -269,9 +269,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
         });
 
-        for i_x in 0..config.L {
-            for i_y in 0..config.L {
-                for i_z in 0..config.L {
+        for i_x in 0..config.l {
+            for i_y in 0..config.l {
+                for i_z in 0..config.l {
                     scatt_o1(
                         &mut grid,
                         i_x,
@@ -386,14 +386,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     println!("{} ms per step", elapsed.as_millis() / n_step as u128);
 
-    let mut speed = vec![0.0; config.N];
-    for i in 0..config.N {
+    let mut speed = vec![0.0; config.n];
+    for i in 0..config.n {
         speed[i] = (v[i][0] * v[i][0] + v[i][1] * v[i][1] + v[i][2] * v[i][2]).sqrt();
     }
 
     let data_dir: String = format!(
         "data/N={}_L={}_D={}_T={}_MASS={}_N_TEST={}_T_STEP={}_N_STEP={}_bounded={}",
-        config.N, config.L, config.D, config.T, config.MASS, config.N_TEST, config.T_STEP, n_step, bounded
+        config.n, config.l, config.d, config.temperature, config.mass, config.n_test, config.dt, n_step, bounded
     );
     std::fs::create_dir_all(&data_dir)?;
     let mut file = File::create(format!("{}/speed.csv", data_dir))?;
@@ -404,7 +404,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     file = File::create(format!("{}/pressure.csv", data_dir))?;
     writeln!(file, "time,pressure")?;
     for (i, value) in pressures.iter().enumerate() {
-        writeln!(file, "{},{}", i as f64 * config.T_STEP, value)?;
+        writeln!(file, "{},{}", i as f64 * config.dt, value)?;
     }
     Ok(())
 }

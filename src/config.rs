@@ -3,14 +3,14 @@ use std::fs;
 
 #[derive(Deserialize)]
 pub struct Config {
-    pub N: usize,
-    pub L: usize,
-    pub D: f64,
-    pub T: f64,
-    pub MASS: f64,
-    pub N_TEST: usize,
-    pub E0: f64,
-    pub T_STEP: f64,
+    pub n: usize,
+    pub l: usize,
+    pub d: f64,
+    pub temperature: f64,
+    pub mass: f64,
+    pub n_test: usize,
+    pub e0: f64,
+    pub dt: f64,
 }
 
 impl Config {
