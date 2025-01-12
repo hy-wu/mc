@@ -20,8 +20,8 @@ async def run_rust_program(config_path, n_step, bounded):
         else:
             print(f'Error running {config_path}: {stderr.decode()},\nstdout:{stdout.decode()}, check {config_path}.log for more info')
 
-N = 131072
-L = 16
+N = 131072 * 64
+L = 16 * 4
 T = 1.0
 MASS = 200.0
 N_TEST = 1
@@ -45,7 +45,7 @@ async def main():
         config_path = f'config_D{config['D']}.toml'
         # if not os.path.exists(config_path):
         create_config_file(config, config_path)
-        task = asyncio.create_task(run_rust_program(config_path, 500, True))
+        task = asyncio.create_task(run_rust_program(config_path, 5, True))
         tasks.append(task)
         print(f'Start running config_D{config["D"]}')
         await asyncio.sleep(1)
