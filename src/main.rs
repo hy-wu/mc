@@ -1,7 +1,17 @@
+#![cfg_attr(feature = "simd", feature(portable_simd))]
+
+// Fix the imports for SIMD
+#[cfg(feature = "simd")]
+use std::simd::f64x4;
+#[cfg(feature = "simd")]
+use std::simd::num::SimdFloat; // Import the correct trait for reduce_sum()
+
 use std::env;
 use std::f64::consts::PI;
 use std::io::prelude::*;
 use std::{io, vec};
+
+use rayon::prelude::*;
 
 use rand::Rng;
 use std::fs::File;
@@ -10,57 +20,136 @@ use std::time::Instant;
 mod config;
 use config::Config;
 
-fn scatt_o1(
-    grid: &mut Vec<Vec<Vec<Vec<usize>>>>,
+// Vector operation utilities
+#[inline]
+fn dot_product(a: &[f64; 3], b: &[f64; 3]) -> f64 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+#[cfg(feature = "simd")]
+#[inline]
+fn dot_product_simd(a: &[f64; 3], b: &[f64; 3]) -> f64 {
+    let a_simd = f64x4::from_array([a[0], a[1], a[2], 0.0]);
+    let b_simd = f64x4::from_array([b[0], b[1], b[2], 0.0]);
+    (a_simd * b_simd).reduce_sum()
+}
+
+#[inline]
+fn apply_periodic_boundary(mut dr: f64, box_length: f64) -> f64 {
+    if dr > box_length / 2.0 {
+        dr -= box_length;
+    } else if dr < -box_length / 2.0 {
+        dr += box_length;
+    }
+    dr
+}
+
+// Common collision calculation logic for both scatt_o1 and scatt_o2
+#[inline]
+fn calculate_collision_parameters(
+    i0: usize, 
+    i1: usize, 
+    r: &[[f64; 3]], 
+    v: &[[f64; 3]],
+    config: &Config
+) -> (f64, f64, f64, [f64; 3], [f64; 3]) {
+    let mut dr = [0.0; 3];
+    let mut dv = [0.0; 3];
+    
+    // Compute position and velocity differences with boundary conditions
+    for k in 0..3 {
+        dr[k] = r[i0][k] - r[i1][k];
+        dr[k] = apply_periodic_boundary(dr[k], config.l as f64);
+        dv[k] = v[i0][k] - v[i1][k];
+    }
+    
+    #[cfg(feature = "simd")]
+    let dr2 = dot_product_simd(&dr, &dr);
+    #[cfg(not(feature = "simd"))]
+    let dr2 = dot_product(&dr, &dr);
+    
+    #[cfg(feature = "simd")]
+    let dv_dr = dot_product_simd(&dv, &dr);
+    #[cfg(not(feature = "simd"))]
+    let dv_dr = dot_product(&dv, &dr);
+    
+    #[cfg(feature = "simd")]
+    let dv2 = dot_product_simd(&dv, &dv);
+    #[cfg(not(feature = "simd"))]
+    let dv2 = dot_product(&dv, &dv);
+    
+    let dspeed = dv2.sqrt();
+    
+    let mut vec_k = [0.0; 3];
+    for k in 0..3 {
+        vec_k[k] = dr[k] / dr2;
+    }
+    
+    (dr2, dv_dr, dspeed, dr, vec_k)
+}
+
+#[inline]
+fn scatt_o1_optimized(
+    grid: &Vec<Vec<Vec<Vec<usize>>>>,
     i_x: usize,
     i_y: usize,
     i_z: usize,
     di: [i32; 3],
     rng: &mut rand::rngs::ThreadRng,
-    r: &Vec<[f64; 3]>,
-    v: &mut Vec<[f64; 3]>,
+    r: &[[f64; 3]],
+    v: &mut [[f64; 3]],
     config: &Config,
 ) {
     let l = grid.len();
     let i_x_new = (i_x as i32 + di[0]).rem_euclid(l as i32) as usize;
     let i_y_new = (i_y as i32 + di[1]).rem_euclid(l as i32) as usize;
     let i_z_new = (i_z as i32 + di[2]).rem_euclid(l as i32) as usize;
-    for j0 in 0..grid[i_x][i_y][i_z].len() {
-        for j1 in 0..grid[i_x_new][i_y_new][i_z_new].len() {
-            let i0 = grid[i_x][i_y][i_z][j0];
-            let i1 = grid[i_x_new][i_y_new][i_z_new][j1];
-            let mut dr = [0.0; 3];
-            let mut dv = [0.0; 3];
-            for k in 0..3 {
-                dr[k] = r[i0][k] - r[i1][k];
-                if dr[k] > config.l as f64 / 2.0 {
-                    dr[k] -= config.l as f64;
-                } else if dr[k] < -(config.l as f64) / 2.0 {
-                    dr[k] += config.l as f64;
-                }
-                dv[k] = v[i0][k] - v[i1][k];
+    
+    // Store local references to grid cells for better cache locality
+    let current_cell = &grid[i_x][i_y][i_z];
+    let neighbor_cell = &grid[i_x_new][i_y_new][i_z_new];
+    
+    // Skip empty cell pairs
+    if current_cell.is_empty() || neighbor_cell.is_empty() {
+        return;
+    }
+    
+    // Pre-allocate a buffer for calculating multiple collisions at once
+    // let mut collisions = Vec::new();
+    
+    // First pass: identify all potential collisions
+    for j0 in 0..current_cell.len() {
+        let i0 = current_cell[j0];
+        
+        for j1 in 0..neighbor_cell.len() {
+            let i1 = neighbor_cell[j1];
+            
+            // Skip self-interactions
+            if i0 == i1 {
+                continue;
             }
-            let dr2 = dr[0] * dr[0] + dr[1] * dr[1] + dr[2] * dr[2];
-            let dv2 = dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2];
-            let dspeed = dv2.sqrt();
-            // \vec{k} = \Delta\vec{v}_{rel} / |\Deltad\vec{v}_{rel}|
-            //         = (\Delta\vec{v}_2 - \Delta\vec{v}_1) / |\Delta\vec{v}_2 - \Delta\vec{v}_1|
-            let mut vec_k: [f64; 3] = [0.0; 3];
-            for k in 0..3 {
-                vec_k[k] = dr[k] / dr2
-            }
-            let mut k_factor =
-                vec_k[0] * di[0] as f64 + vec_k[1] * di[1] as f64 + vec_k[2] * di[2] as f64;
-            let dv_dr = dv[0] * dr[0] + dv[1] * dr[1] + dv[2] * dr[2];
+            
+            let (_dr2, dv_dr, dspeed, _dr, vec_k) = 
+                calculate_collision_parameters(i0, i1, r, v, config);
+                
+            // Early exit if particles are moving away from each other
             if dv_dr >= 0.0 {
                 continue;
-            } else {
-                k_factor = -k_factor;
-                // assert!(k_factor > 0.0, "k_factor = {}", k_factor);
             }
+            
+            // Calculate k_factor based on direction vector
+            let mut k_factor = vec_k[0] * di[0] as f64 + 
+                              vec_k[1] * di[1] as f64 + 
+                              vec_k[2] * di[2] as f64;
+            k_factor = -k_factor; // Adjust for collision direction
+            
+            // Calculate collision probability
             let collision_prob = dspeed * config.dt * config.d.powi(3) * k_factor * PI
                 / (2 * config.n_test) as f64;
+            
+            // Perform collision if probability threshold is met
             if rng.gen_range(0.0..1.0) < collision_prob {
+                // Apply velocity changes directly
                 for k in 0..3 {
                     v[i0][k] -= vec_k[k] * dv_dr;
                     v[i1][k] += vec_k[k] * dv_dr;
@@ -70,63 +159,66 @@ fn scatt_o1(
     }
 }
 
-fn scatt_o2(
-    grid: &mut Vec<Vec<Vec<Vec<usize>>>>,
+#[inline]
+fn scatt_o2_optimized(
+    grid: &Vec<Vec<Vec<Vec<usize>>>>,
     i_x: usize,
     i_y: usize,
     i_z: usize,
     di: [i32; 3],
     rng: &mut rand::rngs::ThreadRng,
-    r: &Vec<[f64; 3]>,
-    v: &mut Vec<[f64; 3]>,
+    r: &[[f64; 3]],
+    v: &mut [[f64; 3]],
     config: &Config,
 ) {
     let l = grid.len();
     let i_x_new = (i_x as i32 + di[0]).rem_euclid(l as i32) as usize;
     let i_y_new = (i_y as i32 + di[1]).rem_euclid(l as i32) as usize;
     let i_z_new = (i_z as i32 + di[2]).rem_euclid(l as i32) as usize;
-    for j0 in 0..grid[i_x][i_y][i_z].len() {
-        for j1 in 0..grid[i_x_new][i_y_new][i_z_new].len() {
-            let i0 = grid[i_x][i_y][i_z][j0];
-            let i1 = grid[i_x_new][i_y_new][i_z_new][j1];
-            let mut dr = [0.0; 3];
-            let mut dv = [0.0; 3];
-
-            for k in 0..3 {
-                dr[k] = r[i0][k] - r[i1][k];
-                if dr[k] > config.l as f64 / 2.0 {
-                    dr[k] -= config.l as f64;
-                } else if dr[k] < -(config.l as f64) / 2.0 {
-                    dr[k] += config.l as f64;
-                }
-                // elsewise, dr[k] = (dr[k] + L / 2).rem_euclid(L as f64) - L / 2;, which is faster?
-                dv[k] = v[i0][k] - v[i1][k];
+    
+    // Store local references to grid cells for better cache locality  
+    let current_cell = &grid[i_x][i_y][i_z];
+    let neighbor_cell = &grid[i_x_new][i_y_new][i_z_new];
+    
+    // Skip empty cell pairs
+    if current_cell.is_empty() || neighbor_cell.is_empty() {
+        return;
+    }
+    
+    for j0 in 0..current_cell.len() {
+        let i0 = current_cell[j0];
+        
+        for j1 in 0..neighbor_cell.len() {
+            let i1 = neighbor_cell[j1];
+            
+            // Skip self-interactions
+            if i0 == i1 {
+                continue;
             }
-            let dr2 = dr[0] * dr[0] + dr[1] * dr[1] + dr[2] * dr[2];
-            let dv2 = dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2];
-            let dspeed = dv2.sqrt();
-            // \vec{k} = \Delta\vec{v}_{rel} / |\Deltad\vec{v}_{rel}|
-            //         = (\Delta\vec{v}_2 - \Delta\vec{v}_1) / |\Delta\vec{v}_2 - \Delta\vec{v}_1|
-            let mut vec_k: [f64; 3] = [0.0; 3];
-            for k in 0..3 {
-                vec_k[k] = dr[k] / dr2
-            }
-            let mut k_factor = 1.;
-            for k in 0..3 {
-                if di[k] == 1 {
-                    // assert!(vec_k[k] < 0.0, "vec_k[{}] = {}", k, vec_k[k]);
-                    k_factor *= vec_k[k];
-                } else if di[k] == 2 {
-                    // assert!(vec_k[k] < 0.0, "vec_k[{}] = {}", k, vec_k[k]);
-                    k_factor *= vec_k[k].powi(2);
-                }
-            }
-            let dv_dr = dv[0] * dr[0] + dv[1] * dr[1] + dv[2] * dr[2];
+            
+            let (_dr2, dv_dr, dspeed, _dr, vec_k) = 
+                calculate_collision_parameters(i0, i1, r, v, config);
+                
+            // Early exit if particles are moving away from each other
             if dv_dr >= 0.0 {
                 continue;
             }
+            
+            // Calculate k_factor based on collision order
+            let mut k_factor = 1.0;
+            for k in 0..3 {
+                if di[k] == 1 {
+                    k_factor *= vec_k[k];
+                } else if di[k] == 2 {
+                    k_factor *= vec_k[k].powi(2);
+                }
+            }
+            
+            // Calculate collision probability
             let collision_prob = dspeed * config.dt * config.d.powi(4) * k_factor * PI
                 / (8 * config.n_test) as f64;
+            
+            // Perform collision if probability threshold is met
             if rng.gen_range(0.0..1.0) < collision_prob {
                 for k in 0..3 {
                     v[i0][k] -= vec_k[k] * dv_dr;
@@ -272,105 +364,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         for i_x in 0..config.l {
             for i_y in 0..config.l {
                 for i_z in 0..config.l {
-                    scatt_o1(
-                        &mut grid,
-                        i_x,
-                        i_y,
-                        i_z,
-                        [1, 0, 0],
-                        &mut rng,
-                        &r,
-                        &mut v,
-                        &config,
-                    );
-                    scatt_o1(
-                        &mut grid,
-                        i_x,
-                        i_y,
-                        i_z,
-                        [0, 1, 0],
-                        &mut rng,
-                        &r,
-                        &mut v,
-                        &config,
-                    );
-                    scatt_o1(
-                        &mut grid,
-                        i_x,
-                        i_y,
-                        i_z,
-                        [0, 0, 1],
-                        &mut rng,
-                        &r,
-                        &mut v,
-                        &config,
-                    );
-                    scatt_o2(
-                        &mut grid,
-                        i_x,
-                        i_y,
-                        i_z,
-                        [1, 1, 0],
-                        &mut rng,
-                        &r,
-                        &mut v,
-                        &config,
-                    );
-                    scatt_o2(
-                        &mut grid,
-                        i_x,
-                        i_y,
-                        i_z,
-                        [1, 0, 1],
-                        &mut rng,
-                        &r,
-                        &mut v,
-                        &config,
-                    );
-                    scatt_o2(
-                        &mut grid,
-                        i_x,
-                        i_y,
-                        i_z,
-                        [0, 1, 1],
-                        &mut rng,
-                        &r,
-                        &mut v,
-                        &config,
-                    );
-                    scatt_o2(
-                        &mut grid,
-                        i_x,
-                        i_y,
-                        i_z,
-                        [2, 0, 0],
-                        &mut rng,
-                        &r,
-                        &mut v,
-                        &config,
-                    );
-                    scatt_o2(
-                        &mut grid,
-                        i_x,
-                        i_y,
-                        i_z,
-                        [0, 2, 0],
-                        &mut rng,
-                        &r,
-                        &mut v,
-                        &config,
-                    );
-                    scatt_o2(
-                        &mut grid,
-                        i_x,
-                        i_y,
-                        i_z,
-                        [0, 0, 2],
-                        &mut rng,
-                        &r,
-                        &mut v,
-                        &config,
-                    );
+                    scatt_o1_optimized(&grid, i_x, i_y, i_z, [1, 0, 0], &mut rng, &r, &mut v, &config);
+                    scatt_o1_optimized(&grid, i_x, i_y, i_z, [0, 1, 0], &mut rng, &r, &mut v, &config);
+                    scatt_o1_optimized(&grid, i_x, i_y, i_z, [0, 0, 1], &mut rng, &r, &mut v, &config);
+                    scatt_o2_optimized(&grid, i_x, i_y, i_z, [1, 1, 0], &mut rng, &r, &mut v, &config);
+                    scatt_o2_optimized(&grid, i_x, i_y, i_z, [1, 0, 1], &mut rng, &r, &mut v, &config);
+                    scatt_o2_optimized(&grid, i_x, i_y, i_z, [0, 1, 1], &mut rng, &r, &mut v, &config);
+                    scatt_o2_optimized(&grid, i_x, i_y, i_z, [2, 0, 0], &mut rng, &r, &mut v, &config);
+                    scatt_o2_optimized(&grid, i_x, i_y, i_z, [0, 2, 0], &mut rng, &r, &mut v, &config);
+                    scatt_o2_optimized(&grid, i_x, i_y, i_z, [0, 0, 2], &mut rng, &r, &mut v, &config);
                 }
             }
         }

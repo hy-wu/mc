@@ -1,5 +1,8 @@
 {
     "logViewer.watch": [
+
+
+
         "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.1.toml.log",
         "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.11.toml.log",
         "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.12.toml.log",
@@ -7,5 +10,30 @@
         "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.14.toml.log",
         "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.15.toml.log",
         "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.16.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.17.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.18.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.19.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.2.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.2_T0.01.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.2_T0.1.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.2_T1.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.2_T10.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.2_T30.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.2_T100.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.2_T300.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.2_T1000.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.20.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.21.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.22.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.23.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.24.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.25.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.26.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.27.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.28.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.29.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.3.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.30.toml.log",
+        "C:\\Users\\hy-wu.DESKTOP-G355NC5\\Projects\\mc\\config_D0.31.toml.log",
     ]
 }
