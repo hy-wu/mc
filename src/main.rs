@@ -11,7 +11,7 @@ use std::f64::consts::PI;
 use std::io::prelude::*;
 use std::{io, vec};
 
-use rayon::prelude::*;
+// use rayon::prelude::*;
 
 use rand::Rng;
 use std::fs::File;
@@ -354,6 +354,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     v[i0][k] -= dr[k] * dv_dr / dr2;
                                     v[i1][k] += dr[k] * dv_dr / dr2;
                                 }
+                                let mut force = [0.0; 3];
+                                if dr2 > config.d.powi(2) && dr2 < 10.0 * (config.d).powi(2) {
+                                    for k in 0..3 {
+                                        force[k] = 24.0 * config.l_j_epsilon * (2.0 * (config.d.powi(2) / dr2).powi(5) - (config.d.powi(2) / dr2).powi(2)) * dr[k];
+                                        v[i0][k] -= force[k] * config.dt / config.mass;
+                                        v[i1][k] += force[k] * config.dt / config.mass;
+                                    }
+                                }
                             }
                         }
                     }
@@ -394,8 +402,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let data_dir: String = format!(
-        "data/N={}_L={}_D={}_T={}_MASS={}_N_TEST={}_T_STEP={}_N_STEP={}_bounded={}",
-        config.n, config.l, config.d, config.temperature, config.mass, config.n_test, config.dt, n_step, bounded
+        "data/N={}_L={}_D={}_T={}_MASS={}_N_TEST={}_T_STEP={}_EPS={}_N_STEP={}_bounded={}",
+        config.n, config.l, config.d, config.temperature, config.mass, config.n_test, config.dt, config.l_j_epsilon, n_step, bounded
     );
     std::fs::create_dir_all(&data_dir)?;
     let mut file = File::create(format!("{}/speed.csv", data_dir))?;

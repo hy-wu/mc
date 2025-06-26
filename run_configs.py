@@ -46,24 +46,25 @@ configs = [
         'n_test': 1,
         'e0': 1.5 * T,
         'dt': float(f"{0.002 / 0.2 ** 2 / T ** 0.5:.2g}"),
-    # } for D in [0.10]
-    # } for T in [0.01, 0.1, 1, 10, 100, 1000]
-    } for T in [30, 100, 300, 1000]
+        'l_j_epsilon': 1.0,
+    } for T in [0.0001, 0.0003, 0.001, 0.003]
+    # } for T in [0.01, 0.03, 0.1, 0.3, 1, 3, 10]
+    # } for T in [30, 100, 300, 1000]
 ]
 
 async def main():
     tasks = []
     for i, config in enumerate(configs):
-        config_path = f'config_D{config["d"]}_T{config["temperature"]}.toml'
+        config_path = f'config_lj_D{config["d"]}_T{config["temperature"]}.toml'
         # if not os.path.exists(config_path):
         create_config_file(config, config_path)
         task = asyncio.create_task(run_rust_program(config_path, 10000, True))
         tasks.append(task)
-        print(f'Start running config_D{config["d"]}_T{config["temperature"]}')
+        print(f'Start running {config_path} ({i+1}/{len(configs)})')
         await asyncio.sleep(1)
     await asyncio.gather(*tasks)
     for config in configs:
-        os.remove(f'config_D{config["d"]}_T{config["temperature"]}.toml')
+        os.remove(f'config_lj_D{config["d"]}_T{config["temperature"]}.toml')
 
 asyncio.run(main())
 for d in os.listdir('./data'):

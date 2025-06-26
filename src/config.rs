@@ -11,6 +11,7 @@ pub struct Config {
     pub n_test: usize,
     pub e0: f64,
     pub dt: f64,
+    pub l_j_epsilon: f64,
 }
 
 impl Config {

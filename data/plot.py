@@ -1,3 +1,4 @@
+import os
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
@@ -30,7 +31,18 @@ def read_config(file_path):
         config['T_STEP'] = float(re.search(r'pub const T_STEP: f64 = ([\d.]+);', content).group(1))
     return config
 
-config = read_config('../../src/config.rs')
+def get_config_by_dir():
+    path = os.getcwd().split(os.sep)[-1]
+    config = {}
+    pattern = r'([A-Z]+_?[A-Z]*)=(\d+\.?\d*)'
+    matches = re.findall(pattern, path)
+    for match in matches:
+        key, value = match
+        config[key] = float(value) if '.' in value else int(value)
+    return config
+
+# config = read_config('../../src/config.rs')
+config = get_config_by_dir()
 T = config['T']
 m = config['MASS']
 
