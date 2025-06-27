@@ -411,6 +411,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     for value in speed {
         writeln!(file, "{}", value)?;
     }
+    file = File::create(format!("{}/final_state.csv", data_dir))?;
+    writeln!(file, "x,y,z,vx,vy,vz")?;
+    for i in 0..config.n {
+        writeln!(file, "{},{},{},{},{},{}", r[i][0], r[i][1], r[i][2], v[i][0], v[i][1], v[i][2])?;
+    }
     file = File::create(format!("{}/pressure.csv", data_dir))?;
     writeln!(file, "time,pressure")?;
     for (i, value) in pressures.iter().enumerate() {
