@@ -1,0 +1,127 @@
+{
+  "N": 16384,
+  "L": 8,
+  "T": 1.0,
+  "MASS": 200.0,
+  "N_STEP": 5000,
+  "BOUNDED": true,
+  "d": 0.2,
+  "dt": 0.25,
+  "configs": [
+    {
+      "label": "eps_0.0",
+      "l_j_epsilon": 0.0,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=0_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_0.001",
+      "l_j_epsilon": 0.001,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=0.001_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_0.002",
+      "l_j_epsilon": 0.002,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=0.002_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_0.005",
+      "l_j_epsilon": 0.005,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=0.005_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_0.01",
+      "l_j_epsilon": 0.01,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=0.01_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_0.02",
+      "l_j_epsilon": 0.02,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=0.02_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_0.05",
+      "l_j_epsilon": 0.05,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=0.05_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_0.1",
+      "l_j_epsilon": 0.1,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=0.1_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_0.2",
+      "l_j_epsilon": 0.2,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=0.2_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_0.3",
+      "l_j_epsilon": 0.3,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=0.3_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_0.5",
+      "l_j_epsilon": 0.5,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=0.5_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_0.7",
+      "l_j_epsilon": 0.7,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=0.7_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_1.0",
+      "l_j_epsilon": 1.0,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=1_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_1.5",
+      "l_j_epsilon": 1.5,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=1.5_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_2.0",
+      "l_j_epsilon": 2.0,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=2_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_3.0",
+      "l_j_epsilon": 3.0,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=3_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_5.0",
+      "l_j_epsilon": 5.0,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=5_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_7.0",
+      "l_j_epsilon": 7.0,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=7_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_10.0",
+      "l_j_epsilon": 10.0,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=10_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_15.0",
+      "l_j_epsilon": 15.0,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=15_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_20.0",
+      "l_j_epsilon": 20.0,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=20_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_30.0",
+      "l_j_epsilon": 30.0,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=30_N_STEP=5000_bounded=true"
+    },
+    {
+      "label": "eps_50.0",
+      "l_j_epsilon": 50.0,
+      "data_dir": "data/N=16384_L=8_D=0.2_T=1_MASS=200_N_TEST=1_T_STEP=0.25_EPS=50_N_STEP=5000_bounded=true"
+    }
+  ]
+}
