@@ -5,7 +5,6 @@ import pandas as pd
 
 from scipy.optimize import curve_fit
 
-speed = pd.read_csv('speed.csv')
 
 # plt.hist(speed['speed'], bins=1000)
 # plt.xlabel('Speed')
@@ -42,40 +41,55 @@ def get_config_by_dir():
     return config
 
 # config = read_config('../../src/config.rs')
-config = get_config_by_dir()
-T = config['T']
-m = config['MASS']
+for data_dir in os.listdir():
+    if not os.path.isdir(data_dir):
+        continue
+    os.chdir(data_dir)
+    try:
+        config = get_config_by_dir()
+        T = config['T']
+        m = config['MASS']
 
-particle_energies = speed['speed']**2 * 0.5 * m
+    except Exception as e:
+        print(f"ignore: {data_dir}")
+        os.chdir('..')
+        continue
+    else:
+        print(f"Ploting in {data_dir}")
 
-hist, bins = np.histogram(particle_energies, bins=200)
-bin_widths = np.diff(bins)
-bin_centers = (bins[:-1] + bins[1:]) / 2
-norm_factor = bin_widths * np.sqrt(bin_centers)
-normalized_hist = hist / norm_factor
-popt, pcov = curve_fit(exp_func, bin_centers, normalized_hist, p0=[1e5, T])
-fit_values = exp_func(bin_centers, *popt)
-plt.clf()
-plt.bar(bin_centers, normalized_hist, width=bin_widths, color='b', alpha=0.5, label='Data')
-plt.plot(bin_centers, fit_values, 'r-', label='Fit: a=%.5f, T=%.5f' % tuple(popt))
-plt.yscale('log')
-plt.xlabel('E')
-plt.title(R"$\mathrm{d}N/\sqrt{E}\mathrm{d}E$")
-plt.legend()
-plt.savefig('energy_hist.png')
+    speed = pd.read_csv('speed.csv')
+    particle_energies = speed['speed']**2 * 0.5 * m
 
-pressure = pd.read_csv('pressure.csv')
-plt.clf()
-plt.plot(pressure['time'], pressure['pressure'], label='Pressure')
+    hist, bins = np.histogram(particle_energies, bins=200)
+    bin_widths = np.diff(bins)
+    bin_centers = (bins[:-1] + bins[1:]) / 2
+    norm_factor = bin_widths * np.sqrt(bin_centers)
+    normalized_hist = hist / norm_factor
+    popt, pcov = curve_fit(exp_func, bin_centers, normalized_hist, p0=[1e5, T])
+    fit_values = exp_func(bin_centers, *popt)
+    plt.clf()
+    plt.bar(bin_centers, normalized_hist, width=bin_widths, color='b', alpha=0.5, label='Data')
+    plt.plot(bin_centers, fit_values, 'r-', label='Fit: a=%.5f, T=%.5f' % tuple(popt))
+    plt.yscale('log')
+    plt.xlabel('E')
+    plt.title(R"$\mathrm{d}N/\sqrt{E}\mathrm{d}E$")
+    plt.legend()
+    plt.savefig('energy_hist.png')
 
-# plot pooled pressure
-N_pool = 50
-pooled_pressure = pressure['pressure'].rolling(window=N_pool).mean()
-plt.plot(pressure['time'], pooled_pressure, label='Pooled Pressure')
+    pressure = pd.read_csv('pressure.csv')
+    plt.clf()
+    plt.plot(pressure['time'], pressure['pressure'], label='Pressure')
 
-plt.xlabel('Time')
-plt.ylabel('Pressure')
-plt.legend()
-plt.title('Pressure')
-plt.savefig('pressure.png')
+    # plot pooled pressure
+    N_pool = 50
+    pooled_pressure = pressure['pressure'].rolling(window=N_pool).mean()
+    plt.plot(pressure['time'], pooled_pressure, label='Pooled Pressure')
+
+    plt.xlabel('Time')
+    plt.ylabel('Pressure')
+    plt.legend()
+    plt.title('Pressure')
+    plt.savefig('pressure.png')
+
+    os.chdir('..')
 
