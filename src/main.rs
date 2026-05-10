@@ -13,7 +13,8 @@ use std::{io, vec};
 
 // use rayon::prelude::*;
 
-use rand::Rng;
+use rand::rngs::SmallRng;
+use rand::{Rng, SeedableRng};
 use std::fs::File;
 use std::time::Instant;
 
@@ -95,7 +96,7 @@ fn scatt_o1_optimized(
     i_y: usize,
     i_z: usize,
     di: [i32; 3],
-    rng: &mut rand::rngs::ThreadRng,
+    rng: &mut SmallRng,
     r: &[[f64; 3]],
     v: &mut [[f64; 3]],
     config: &Config,
@@ -144,11 +145,10 @@ fn scatt_o1_optimized(
             k_factor = -k_factor; // Adjust for collision direction
             
             // Calculate collision probability
-            let collision_prob = dspeed * config.dt * config.d.powi(3) * k_factor * PI
-                / (2 * config.n_test) as f64;
+            let collision_prob = dspeed * config.collision_coeff_o1 * k_factor;
             
             // Perform collision if probability threshold is met
-            if rng.gen_range(0.0..1.0) < collision_prob {
+            if rng.gen_range(0.0_f64..1.0) < collision_prob {
                 // Apply velocity changes directly
                 for k in 0..3 {
                     v[i0][k] -= vec_k[k] * dv_dr;
@@ -166,7 +166,7 @@ fn scatt_o2_optimized(
     i_y: usize,
     i_z: usize,
     di: [i32; 3],
-    rng: &mut rand::rngs::ThreadRng,
+    rng: &mut SmallRng,
     r: &[[f64; 3]],
     v: &mut [[f64; 3]],
     config: &Config,
@@ -215,11 +215,10 @@ fn scatt_o2_optimized(
             }
             
             // Calculate collision probability
-            let collision_prob = dspeed * config.dt * config.d.powi(4) * k_factor * PI
-                / (8 * config.n_test) as f64;
+            let collision_prob = dspeed * config.collision_coeff_o2 * k_factor;
             
             // Perform collision if probability threshold is met
-            if rng.gen_range(0.0..1.0) < collision_prob {
+            if rng.gen_range(0.0_f64..1.0) < collision_prob {
                 for k in 0..3 {
                     v[i0][k] -= vec_k[k] * dv_dr;
                     v[i1][k] += vec_k[k] * dv_dr;
@@ -243,20 +242,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bounded: bool = args[3].parse()?;
     let config = Config::from_file(config_path);
 
-    let mut r = vec![[0.0; 3]; config.n];
-    let mut theta = vec![0.0; config.n];
-    let mut phi = vec![0.0; config.n];
-    let mut v = vec![[0.0; 3]; config.n];
-    let mut rng = rand::thread_rng();
+    let mut r: Vec<[f64; 3]> = vec![[0.0; 3]; config.n];
+    let mut v: Vec<[f64; 3]> = vec![[0.0; 3]; config.n];
+    let mut rng = SmallRng::from_entropy();
     for i in 0..config.n {
         for j in 0..3 {
-            r[i][j] = rng.gen_range(0.0..config.l as f64);
+            r[i][j] = rng.gen_range(0.0_f64..config.l as f64);
         }
-        theta[i] = (1.0 - 2.0 * rng.gen_range(0.0..1.0_f64)).acos();
-        phi[i] = rng.gen_range(0.0..2.0 * std::f64::consts::PI);
-        v[i][0] = theta[i].sin() * phi[i].cos() * (2.0 * config.e0 / config.mass).sqrt();
-        v[i][1] = theta[i].sin() * phi[i].sin() * (2.0 * config.e0 / config.mass).sqrt();
-        v[i][2] = theta[i].cos() * (2.0 * config.e0 / config.mass).sqrt();
+        let theta: f64 = (1.0 - 2.0 * rng.gen_range(0.0_f64..1.0)).acos();
+        let phi: f64 = rng.gen_range(0.0_f64..2.0 * std::f64::consts::PI);
+        v[i][0] = theta.sin() * phi.cos() * config.v_magnitude;
+        v[i][1] = theta.sin() * phi.sin() * config.v_magnitude;
+        v[i][2] = theta.cos() * config.v_magnitude;
     }
     let mut grid: Vec<Vec<Vec<Vec<usize>>>> =
         vec![vec![vec![vec![]; config.l]; config.l]; config.l];
@@ -322,8 +319,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             grid[i_x_new][i_y_new][i_z_new].push(i);
                         }
                     }
+                    // Use swap_remove (O(1)) instead of remove (O(n))
+                    // Must iterate in reverse to keep indices valid
                     for &j in removes.iter().rev() {
-                        grid[i_x][i_y][i_z].remove(j);
+                        grid[i_x][i_y][i_z].swap_remove(j);
                     }
                     removes.clear();
                 }
@@ -345,9 +344,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                             let dv2 = dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2];
                             let dspeed = dv2.sqrt();
-                            let collision_prob = dspeed * config.dt * config.d * config.d * PI
-                                / config.n_test as f64;
-                            if rng.gen_range(0.0..1.0) < collision_prob {
+                            let collision_prob = dspeed * config.collision_coeff_o0;
+                            if rng.gen_range(0.0_f64..1.0) < collision_prob {
                                 let dr2 = dr[0] * dr[0] + dr[1] * dr[1] + dr[2] * dr[2];
                                 let dv_dr = dv[0] * dr[0] + dv[1] * dr[1] + dv[2] * dr[2];
                                 for k in 0..3 {
@@ -355,11 +353,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     v[i1][k] += dr[k] * dv_dr / dr2;
                                 }
                                 let mut force = [0.0; 3];
-                                if dr2 > config.d.powi(2) && dr2 < 10.0 * (config.d).powi(2) {
+                                if dr2 > config.d_sq && dr2 < 10.0 * config.d_sq {
+                                    let d_sq_over_dr2 = config.d_sq / dr2;
+                                    let d_sq_over_dr2_sq = d_sq_over_dr2 * d_sq_over_dr2;
+                                    let d_sq_over_dr2_5 = d_sq_over_dr2_sq * d_sq_over_dr2_sq * d_sq_over_dr2;
+                                    let lj_factor = config.lj_coeff * (2.0 * d_sq_over_dr2_5 - d_sq_over_dr2_sq);
                                     for k in 0..3 {
-                                        force[k] = 24.0 * config.l_j_epsilon * (2.0 * (config.d.powi(2) / dr2).powi(5) - (config.d.powi(2) / dr2).powi(2)) * dr[k];
-                                        v[i0][k] -= force[k] * config.dt / config.mass;
-                                        v[i1][k] += force[k] * config.dt / config.mass;
+                                        force[k] = lj_factor * dr[k];
+                                        v[i0][k] -= force[k] * config.dt_over_mass;
+                                        v[i1][k] += force[k] * config.dt_over_mass;
                                     }
                                 }
                             }
