@@ -7,11 +7,8 @@ use std::simd::f64x4;
 use std::simd::num::SimdFloat; // Import the correct trait for reduce_sum()
 
 use std::env;
-use std::f64::consts::PI;
 use std::io::prelude::*;
-use std::{io, vec};
-
-// use rayon::prelude::*;
+use std::io::{self, BufWriter};
 
 use rand::rngs::SmallRng;
 use rand::{Rng, SeedableRng};
@@ -20,6 +17,12 @@ use std::time::Instant;
 
 mod config;
 use config::Config;
+
+// Flat grid index helper
+#[inline]
+fn grid_idx(x: usize, y: usize, z: usize, l: usize) -> usize {
+    x * l * l + y * l + z
+}
 
 // Vector operation utilities
 #[inline]
@@ -91,7 +94,8 @@ fn calculate_collision_parameters(
 
 #[inline]
 fn scatt_o1_optimized(
-    grid: &Vec<Vec<Vec<Vec<usize>>>>,
+    grid: &[Vec<usize>],
+    l: usize,
     i_x: usize,
     i_y: usize,
     i_z: usize,
@@ -101,22 +105,18 @@ fn scatt_o1_optimized(
     v: &mut [[f64; 3]],
     config: &Config,
 ) {
-    let l = grid.len();
     let i_x_new = (i_x as i32 + di[0]).rem_euclid(l as i32) as usize;
     let i_y_new = (i_y as i32 + di[1]).rem_euclid(l as i32) as usize;
     let i_z_new = (i_z as i32 + di[2]).rem_euclid(l as i32) as usize;
     
     // Store local references to grid cells for better cache locality
-    let current_cell = &grid[i_x][i_y][i_z];
-    let neighbor_cell = &grid[i_x_new][i_y_new][i_z_new];
+    let current_cell = &grid[grid_idx(i_x, i_y, i_z, l)];
+    let neighbor_cell = &grid[grid_idx(i_x_new, i_y_new, i_z_new, l)];
     
     // Skip empty cell pairs
     if current_cell.is_empty() || neighbor_cell.is_empty() {
         return;
     }
-    
-    // Pre-allocate a buffer for calculating multiple collisions at once
-    // let mut collisions = Vec::new();
     
     // First pass: identify all potential collisions
     for j0 in 0..current_cell.len() {
@@ -161,7 +161,8 @@ fn scatt_o1_optimized(
 
 #[inline]
 fn scatt_o2_optimized(
-    grid: &Vec<Vec<Vec<Vec<usize>>>>,
+    grid: &[Vec<usize>],
+    l: usize,
     i_x: usize,
     i_y: usize,
     i_z: usize,
@@ -171,14 +172,13 @@ fn scatt_o2_optimized(
     v: &mut [[f64; 3]],
     config: &Config,
 ) {
-    let l = grid.len();
     let i_x_new = (i_x as i32 + di[0]).rem_euclid(l as i32) as usize;
     let i_y_new = (i_y as i32 + di[1]).rem_euclid(l as i32) as usize;
     let i_z_new = (i_z as i32 + di[2]).rem_euclid(l as i32) as usize;
     
     // Store local references to grid cells for better cache locality  
-    let current_cell = &grid[i_x][i_y][i_z];
-    let neighbor_cell = &grid[i_x_new][i_y_new][i_z_new];
+    let current_cell = &grid[grid_idx(i_x, i_y, i_z, l)];
+    let neighbor_cell = &grid[grid_idx(i_x_new, i_y_new, i_z_new, l)];
     
     // Skip empty cell pairs
     if current_cell.is_empty() || neighbor_cell.is_empty() {
@@ -255,14 +255,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         v[i][1] = theta.sin() * phi.sin() * config.v_magnitude;
         v[i][2] = theta.cos() * config.v_magnitude;
     }
-    let mut grid: Vec<Vec<Vec<Vec<usize>>>> =
-        vec![vec![vec![vec![]; config.l]; config.l]; config.l];
+    // Flattened grid: single Vec of L³ cells instead of nested Vec<Vec<Vec<Vec>>>
+    let l = config.l;
+    let grid_size = l * l * l;
+    let mut grid: Vec<Vec<usize>> = vec![vec![]; grid_size];
 
     let mut pressures = vec![0.0; n_step];
     // let mut temperatures = vec![0.0; n_step];
 
     for i in 0..config.n {
-        grid[r[i][0].floor() as usize][r[i][1].floor() as usize][r[i][2].floor() as usize].push(i);
+        let idx = grid_idx(r[i][0].floor() as usize, r[i][1].floor() as usize, r[i][2].floor() as usize, l);
+        grid[idx].push(i);
     }
 
     let start = Instant::now();
@@ -306,89 +309,90 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         pressures[i_t] = pressure;
 
         let mut removes = vec![];
-        for i_x in 0..config.l {
-            for i_y in 0..config.l {
-                for i_z in 0..config.l {
-                    for j in 0..grid[i_x][i_y][i_z].len() {
-                        let i: usize = grid[i_x][i_y][i_z][j];
+        for i_x in 0..l {
+            for i_y in 0..l {
+                for i_z in 0..l {
+                    let cell_idx = grid_idx(i_x, i_y, i_z, l);
+                    for j in 0..grid[cell_idx].len() {
+                        let i: usize = grid[cell_idx][j];
                         let i_x_new = r[i][0].floor() as usize;
                         let i_y_new = r[i][1].floor() as usize;
                         let i_z_new = r[i][2].floor() as usize;
                         if i_x_new != i_x || i_y_new != i_y || i_z_new != i_z {
                             removes.push(j);
-                            grid[i_x_new][i_y_new][i_z_new].push(i);
+                            let new_idx = grid_idx(i_x_new, i_y_new, i_z_new, l);
+                            grid[new_idx].push(i);
                         }
                     }
                     // Use swap_remove (O(1)) instead of remove (O(n))
                     // Must iterate in reverse to keep indices valid
                     for &j in removes.iter().rev() {
-                        grid[i_x][i_y][i_z].swap_remove(j);
+                        grid[cell_idx].swap_remove(j);
                     }
                     removes.clear();
                 }
             }
         }
 
-        grid.iter().for_each(|grid_x| {
-            grid_x.iter().for_each(|grid_y| {
-                grid_y.iter().for_each(|grid_z| {
-                    for j0 in 0..grid_z.len() {
-                        for j1 in j0 + 1..grid_z.len() {
-                            let i0 = grid_z[j0];
-                            let i1 = grid_z[j1];
-                            let mut dr = [0.0; 3];
-                            let mut dv = [0.0; 3];
+        for cell_idx in 0..grid_size {
+            let grid_z = &grid[cell_idx];
+            for j0 in 0..grid_z.len() {
+                for j1 in j0 + 1..grid_z.len() {
+                    let i0 = grid_z[j0];
+                    let i1 = grid_z[j1];
+                    let mut dr = [0.0; 3];
+                    let mut dv = [0.0; 3];
+                    for k in 0..3 {
+                        dr[k] = r[i0][k] - r[i1][k];
+                        dv[k] = v[i0][k] - v[i1][k];
+                    }
+                    let dv2 = dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2];
+                    let dspeed = dv2.sqrt();
+                    let collision_prob = dspeed * config.collision_coeff_o0;
+                    if rng.gen_range(0.0_f64..1.0) < collision_prob {
+                        let dr2 = dr[0] * dr[0] + dr[1] * dr[1] + dr[2] * dr[2];
+                        let dv_dr = dv[0] * dr[0] + dv[1] * dr[1] + dv[2] * dr[2];
+                        for k in 0..3 {
+                            v[i0][k] -= dr[k] * dv_dr / dr2;
+                            v[i1][k] += dr[k] * dv_dr / dr2;
+                        }
+                        let mut force = [0.0; 3];
+                        if dr2 > config.d_sq && dr2 < 10.0 * config.d_sq {
+                            let d_sq_over_dr2 = config.d_sq / dr2;
+                            let d_sq_over_dr2_sq = d_sq_over_dr2 * d_sq_over_dr2;
+                            let d_sq_over_dr2_5 = d_sq_over_dr2_sq * d_sq_over_dr2_sq * d_sq_over_dr2;
+                            let lj_factor = config.lj_coeff * (2.0 * d_sq_over_dr2_5 - d_sq_over_dr2_sq);
                             for k in 0..3 {
-                                dr[k] = r[i0][k] - r[i1][k];
-                                dv[k] = v[i0][k] - v[i1][k];
-                            }
-                            let dv2 = dv[0] * dv[0] + dv[1] * dv[1] + dv[2] * dv[2];
-                            let dspeed = dv2.sqrt();
-                            let collision_prob = dspeed * config.collision_coeff_o0;
-                            if rng.gen_range(0.0_f64..1.0) < collision_prob {
-                                let dr2 = dr[0] * dr[0] + dr[1] * dr[1] + dr[2] * dr[2];
-                                let dv_dr = dv[0] * dr[0] + dv[1] * dr[1] + dv[2] * dr[2];
-                                for k in 0..3 {
-                                    v[i0][k] -= dr[k] * dv_dr / dr2;
-                                    v[i1][k] += dr[k] * dv_dr / dr2;
-                                }
-                                let mut force = [0.0; 3];
-                                if dr2 > config.d_sq && dr2 < 10.0 * config.d_sq {
-                                    let d_sq_over_dr2 = config.d_sq / dr2;
-                                    let d_sq_over_dr2_sq = d_sq_over_dr2 * d_sq_over_dr2;
-                                    let d_sq_over_dr2_5 = d_sq_over_dr2_sq * d_sq_over_dr2_sq * d_sq_over_dr2;
-                                    let lj_factor = config.lj_coeff * (2.0 * d_sq_over_dr2_5 - d_sq_over_dr2_sq);
-                                    for k in 0..3 {
-                                        force[k] = lj_factor * dr[k];
-                                        v[i0][k] -= force[k] * config.dt_over_mass;
-                                        v[i1][k] += force[k] * config.dt_over_mass;
-                                    }
-                                }
+                                force[k] = lj_factor * dr[k];
+                                v[i0][k] -= force[k] * config.dt_over_mass;
+                                v[i1][k] += force[k] * config.dt_over_mass;
                             }
                         }
                     }
-                });
-            });
-        });
-
-        for i_x in 0..config.l {
-            for i_y in 0..config.l {
-                for i_z in 0..config.l {
-                    scatt_o1_optimized(&grid, i_x, i_y, i_z, [1, 0, 0], &mut rng, &r, &mut v, &config);
-                    scatt_o1_optimized(&grid, i_x, i_y, i_z, [0, 1, 0], &mut rng, &r, &mut v, &config);
-                    scatt_o1_optimized(&grid, i_x, i_y, i_z, [0, 0, 1], &mut rng, &r, &mut v, &config);
-                    scatt_o2_optimized(&grid, i_x, i_y, i_z, [1, 1, 0], &mut rng, &r, &mut v, &config);
-                    scatt_o2_optimized(&grid, i_x, i_y, i_z, [1, 0, 1], &mut rng, &r, &mut v, &config);
-                    scatt_o2_optimized(&grid, i_x, i_y, i_z, [0, 1, 1], &mut rng, &r, &mut v, &config);
-                    scatt_o2_optimized(&grid, i_x, i_y, i_z, [2, 0, 0], &mut rng, &r, &mut v, &config);
-                    scatt_o2_optimized(&grid, i_x, i_y, i_z, [0, 2, 0], &mut rng, &r, &mut v, &config);
-                    scatt_o2_optimized(&grid, i_x, i_y, i_z, [0, 0, 2], &mut rng, &r, &mut v, &config);
                 }
             }
         }
 
-        print!("{i_t}/{n_step}\r");
-        io::stdout().flush().unwrap();
+        for i_x in 0..l {
+            for i_y in 0..l {
+                for i_z in 0..l {
+                    scatt_o1_optimized(&grid, l, i_x, i_y, i_z, [1, 0, 0], &mut rng, &r, &mut v, &config);
+                    scatt_o1_optimized(&grid, l, i_x, i_y, i_z, [0, 1, 0], &mut rng, &r, &mut v, &config);
+                    scatt_o1_optimized(&grid, l, i_x, i_y, i_z, [0, 0, 1], &mut rng, &r, &mut v, &config);
+                    scatt_o2_optimized(&grid, l, i_x, i_y, i_z, [1, 1, 0], &mut rng, &r, &mut v, &config);
+                    scatt_o2_optimized(&grid, l, i_x, i_y, i_z, [1, 0, 1], &mut rng, &r, &mut v, &config);
+                    scatt_o2_optimized(&grid, l, i_x, i_y, i_z, [0, 1, 1], &mut rng, &r, &mut v, &config);
+                    scatt_o2_optimized(&grid, l, i_x, i_y, i_z, [2, 0, 0], &mut rng, &r, &mut v, &config);
+                    scatt_o2_optimized(&grid, l, i_x, i_y, i_z, [0, 2, 0], &mut rng, &r, &mut v, &config);
+                    scatt_o2_optimized(&grid, l, i_x, i_y, i_z, [0, 0, 2], &mut rng, &r, &mut v, &config);
+                }
+            }
+        }
+
+        if i_t % 10 == 0 {
+            print!("{i_t}/{n_step}\r");
+            io::stdout().flush().unwrap();
+        }
     }
     let elapsed = start.elapsed();
     println!(
@@ -408,20 +412,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         config.n, config.l, config.d, config.temperature, config.mass, config.n_test, config.dt, config.l_j_epsilon, n_step, bounded
     );
     std::fs::create_dir_all(&data_dir)?;
-    let mut file = File::create(format!("{}/speed.csv", data_dir))?;
-    writeln!(file, "speed")?;
-    for value in speed {
-        writeln!(file, "{}", value)?;
+    {
+        let mut file = BufWriter::new(File::create(format!("{}/speed.csv", data_dir))?);
+        writeln!(file, "speed")?;
+        for value in speed {
+            writeln!(file, "{}", value)?;
+        }
     }
-    file = File::create(format!("{}/final_state.csv", data_dir))?;
-    writeln!(file, "x,y,z,vx,vy,vz")?;
-    for i in 0..config.n {
-        writeln!(file, "{},{},{},{},{},{}", r[i][0], r[i][1], r[i][2], v[i][0], v[i][1], v[i][2])?;
+    {
+        let mut file = BufWriter::new(File::create(format!("{}/final_state.csv", data_dir))?);
+        writeln!(file, "x,y,z,vx,vy,vz")?;
+        for i in 0..config.n {
+            writeln!(file, "{},{},{},{},{},{}", r[i][0], r[i][1], r[i][2], v[i][0], v[i][1], v[i][2])?;
+        }
     }
-    file = File::create(format!("{}/pressure.csv", data_dir))?;
-    writeln!(file, "time,pressure")?;
-    for (i, value) in pressures.iter().enumerate() {
-        writeln!(file, "{},{}", i as f64 * config.dt, value)?;
+    {
+        let mut file = BufWriter::new(File::create(format!("{}/pressure.csv", data_dir))?);
+        writeln!(file, "time,pressure")?;
+        for (i, value) in pressures.iter().enumerate() {
+            writeln!(file, "{},{}", i as f64 * config.dt, value)?;
+        }
     }
     Ok(())
 }
